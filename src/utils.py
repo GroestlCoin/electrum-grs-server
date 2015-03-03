@@ -20,6 +20,7 @@ import threading
 import time
 import hashlib
 import sys
+import groestlcoin_hash
 
 __b58chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 __b58base = len(__b58chars)
@@ -51,6 +52,7 @@ def var_int(i):
 
 
 Hash = lambda x: hashlib.sha256(hashlib.sha256(x).digest()).digest()
+groestlHash = lambda x: groestlcoin_hash.getHash(x, len(x))
 
 
 hash_encode = lambda x: x[::-1].encode('hex')
@@ -132,7 +134,7 @@ def hash_160_to_address(h160, addrtype = 0):
     if h160 is None or len(h160) is not 20:
         return None
     vh160 = chr(addrtype) + h160
-    h = Hash(vh160)
+    h = groestlHash(vh160)
     addr = vh160 + h[0:4]
     return b58encode(addr)
 
@@ -197,7 +199,7 @@ def b58decode(v, length):
 
 
 def EncodeBase58Check(vchIn):
-    hash = Hash(vchIn)
+    hash = groestlHash(vchIn)
     return b58encode(vchIn + hash[0:4])
 
 
@@ -205,7 +207,7 @@ def DecodeBase58Check(psz):
     vchRet = b58decode(psz, None)
     key = vchRet[0:-4]
     csum = vchRet[-4:]
-    hash = Hash(key)
+    hash = groestlHash(key)
     cs32 = hash[0:4]
     if cs32 != csum:
         return None
