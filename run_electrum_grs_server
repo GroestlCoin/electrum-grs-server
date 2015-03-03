@@ -28,15 +28,15 @@ import imp
 
 
 if os.path.dirname(os.path.realpath(__file__)) == os.getcwd():
-    imp.load_module('electrumserver', *imp.find_module('src'))
+    imp.load_module('electrumgrsserver', *imp.find_module('src'))
   
 
-from electrumserver import storage, networks, utils
-from electrumserver.processor import Dispatcher, print_log
-from electrumserver.server_processor import ServerProcessor
-from electrumserver.blockchain_processor import BlockchainProcessor
-from electrumserver.stratum_tcp import TcpServer
-from electrumserver.stratum_http import HttpServer
+from electrumgrsserver import storage, networks, utils
+from electrumgrsserver.processor import Dispatcher, print_log
+from electrumgrsserver.server_processor import ServerProcessor
+from electrumgrsserver.blockchain_processor import BlockchainProcessor
+from electrumgrsserver.stratum_tcp import TcpServer
+from electrumgrsserver.stratum_http import HttpServer
 
 
 logging.basicConfig()
@@ -81,8 +81,8 @@ def create_config(filename=None):
     config = ConfigParser.ConfigParser()
     # set some defaults, which will be overwritten by the config file
     config.add_section('server')
-    config.set('server', 'banner', 'Welcome to Electrum!')
-    config.set('server', 'banner_file', '/etc/electrum.banner')
+    config.set('server', 'banner', 'Welcome to Electrum-GRS!')
+    config.set('server', 'banner_file', '/etc/electrum-grs.banner')
     config.set('server', 'host', 'localhost')
     config.set('server', 'electrum_rpc_port', '8000')
     config.set('server', 'report_host', '')
@@ -100,11 +100,11 @@ def create_config(filename=None):
     config.set('server', 'irc', 'no')
     config.set('server', 'irc_nick', '')
     config.set('server', 'coin', '')
-    config.set('server', 'logfile', '/var/log/electrum.log')
+    config.set('server', 'logfile', '/var/log/electrum-grs.log')
     config.set('server', 'donation_address', '')
 
     config.add_section('leveldb')
-    config.set('leveldb', 'path', '/dev/shm/electrum_db')
+    config.set('leveldb', 'path', '/dev/shm/electrum_grs_db')
     config.set('leveldb', 'pruning_limit', '100')
 
     # set network parameters
@@ -114,12 +114,12 @@ def create_config(filename=None):
     # try to find the config file in the default paths
     if not filename:
         for path in ('/etc/', ''):
-            filename = path + 'electrum.conf'
+            filename = path + 'electrum-grs.conf'
             if os.path.isfile(filename):
                 break
 
     if not os.path.isfile(filename):
-        print 'could not find electrum configuration file "%s"' % filename
+        print 'could not find electrum-grs configuration file "%s"' % filename
         sys.exit(1)
 
     attempt_read_config(config, filename)

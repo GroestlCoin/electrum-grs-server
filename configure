@@ -11,7 +11,7 @@ fi
 source_dir=$(cd "$(dirname "${BASH_SOURCE[0]}" )"; pwd)
 
 
-electrum_config="/etc/electrum.conf"
+electrum_config="/etc/electrum-grs.conf"
 function read_config()
 {
     text=$1
@@ -25,18 +25,18 @@ function write_config()
 # create config file
 if [ ! -f $electrum_config ]; then
     echo "Creating config file"
-    cp $source_dir"/electrum.conf.sample" $electrum_config
+    cp $source_dir"/electrum-grs.conf.sample" $electrum_config
 fi
 
 
 # read username
 user=$(read_config "username")
 if ! [ "$user" ]; then
-    read -p "username for running daemon (default: electrum) " -r
+    read -p "username for running daemon (default: electrum-grs) " -r
     if [ $REPLY ]; then
 	user=$REPLY
     else
-	user="electrum"
+	user="electrum-grs"
     fi 
     write_config "username" $user
 fi
@@ -52,7 +52,7 @@ fi
 
 
 # read path from config
-default_path="/var/electrum-server"
+default_path="/var/electrum-grs-server"
 path=$(read_config "path")
 if ! [ "$path" ]; then
     read -p "Path for database (default: $default_path) " -r
@@ -65,7 +65,7 @@ if ! [ "$path" ]; then
 fi
 
 # read path from config
-default_logfile="/var/log/electrum.log"
+default_logfile="/var/log/electrum-grs.log"
 logfile=$(read_config "logfile")
 if ! [ "$logfile" ]; then
     read -p "Path of logfile (default: $default_logfile) " -r
@@ -85,15 +85,16 @@ fi
 
 
 # download database
-if [ ! -d $path ]; then
-    echo "Database not found in $path."
-    read -p "Do you want to download it from the Electrum foundry to $path ? " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-	mkdir -p $path
-	wget -O - "http://foundry.electrum.org/leveldb-dump/electrum-fulltree-100-latest.tar.gz" | tar --extract --gunzip --strip-components 1 --directory $path --file -
-    fi
-fi
+# No database for GRS
+#if [ ! -d $path ]; then
+#    echo "Database not found in $path."
+#    read -p "Do you want to download it from the Electrum foundry to $path ? " -n 1 -r
+#    echo
+#    if [[ $REPLY =~ ^[Yy]$ ]]; then
+#	mkdir -p $path
+#	wget -O - "http://foundry.electrum.org/leveldb-dump/electrum-fulltree-100-latest.tar.gz" | tar --extract --gunzip --strip-components 1 --directory $path --file -
+#    fi
+#fi
 
 # set owner
 chown -R $user:$user $path
@@ -124,4 +125,4 @@ fi
 echo "Configuration written to $electrum_config."
 echo "Please edit this file to finish the configuration."
 echo "If you have not done so, please run 'python setup.py install'"
-echo "Then, run 'electrum-server' to start the daemon"
+echo "Then, run 'electrum-grs-server' to start the daemon"

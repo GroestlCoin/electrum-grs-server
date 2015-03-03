@@ -1,26 +1,27 @@
 from setuptools import setup
 
 setup(
-    name="electrum-server",
+    name="electrum-grs-server",
     version="0.9",
     scripts=['run_electrum_server','electrum-server'],
-    install_requires=['plyvel','jsonrpclib', 'irc>=11'],
+    install_requires=['plyvel','jsonrpclib', 'irc>=11', 'groestl_hash'],
+    dependency_links=['git+https://github.com/groestlcoin/groestl-hash-python#egg=groestl_hash']
     package_dir={
-        'electrumserver':'src'
+        'electrumgrsserver':'src'
         },
     py_modules=[
-        'electrumserver.__init__',
-        'electrumserver.utils',
-        'electrumserver.storage',
-        'electrumserver.deserialize',
-        'electrumserver.networks',
-        'electrumserver.blockchain_processor',
-        'electrumserver.server_processor',
-        'electrumserver.processor',
-        'electrumserver.version',
-        'electrumserver.ircthread',
-        'electrumserver.stratum_tcp',
-        'electrumserver.stratum_http'
+        'electrumgrsserver.__init__',
+        'electrumgrsserver.utils',
+        'electrumgrsserver.storage',
+        'electrumgrsserver.deserialize',
+        'electrumgrsserver.networks',
+        'electrumgrsserver.blockchain_processor',
+        'electrumgrsserver.server_processor',
+        'electrumgrsserver.processor',
+        'electrumgrsserver.version',
+        'electrumgrsserver.ircthread',
+        'electrumgrsserver.stratum_tcp',
+        'electrumgrsserver.stratum_http'
     ],
     description="Bitcoin Electrum Server",
     author="Thomas Voegtlin",
