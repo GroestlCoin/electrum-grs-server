@@ -81,7 +81,7 @@ class BlockchainProcessor(Processor):
         while not self.shared.stopped():
             self.main_iteration()
             if self.shared.paused():
-                print_log("bitcoind is responding")
+                print_log("groestlcoind is responding")
                 self.shared.unpause()
             time.sleep(10)
 
@@ -114,13 +114,13 @@ class BlockchainProcessor(Processor):
             try:
                 respdata = urllib.urlopen(self.bitcoind_url, postdata).read()
             except:
-                print_log("cannot reach bitcoind...")
+                print_log("cannot reach groestlcoind...")
                 self.wait_on_bitcoind()
             else:
                 r = loads(respdata)
                 if r['error'] is not None:
                     if r['error'].get('code') == -28:
-                        print_log("bitcoind still warming up...")
+                        print_log("groestlcoind still warming up...")
                         self.wait_on_bitcoind()
                         continue
                     raise BaseException(r['error'])
@@ -186,7 +186,7 @@ class BlockchainProcessor(Processor):
         self.flush_headers()
 
     def hash_header(self, header):
-        return rev_hex(Hash(header_to_string(header).decode('hex')).encode('hex'))
+        return rev_hex(groestlHash(header_to_string(header).decode('hex')).encode('hex'))
 
     def read_header(self, block_height):
         if os.path.exists(self.headers_filename):
@@ -584,7 +584,7 @@ class BlockchainProcessor(Processor):
         try:
             respdata = urllib.urlopen(self.bitcoind_url, postdata).read()
         except:
-            logger.error("bitcoind error (getfullblock)",exc_info=True)
+            logger.error("groestlcoind error (getfullblock)",exc_info=True)
             self.shared.stop()
 
         r = loads(respdata)
@@ -592,7 +592,7 @@ class BlockchainProcessor(Processor):
         for ir in r:
             if ir['error'] is not None:
                 self.shared.stop()
-                print_log("Error: make sure you run bitcoind with txindex=1; use -reindex if needed.")
+                print_log("Error: make sure you run groestlcoind with txindex=1; use -reindex if needed.")
                 raise BaseException(ir['error'])
             rawtxdata.append(ir['result'])
         block['tx'] = rawtxdata
