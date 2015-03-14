@@ -363,7 +363,7 @@ class BlockchainProcessor(Processor):
         txdict = {}     # deserialized tx
         is_coinbase = True
         for raw_tx in txlist:
-            tx_hash = hash_encode(Hash(raw_tx.decode('hex')))
+            tx_hash = hash_encode(singleSha256(raw_tx.decode('hex')))
             vds = deserialize.BCDataStream()
             vds.write(raw_tx.decode('hex'))
             try:

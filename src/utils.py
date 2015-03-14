@@ -51,6 +51,7 @@ def var_int(i):
         return "ff" + int_to_hex(i, 8)
 
 
+singleSha256 = lambda x: hashlib.sha256(x).digest()
 Hash = lambda x: hashlib.sha256(hashlib.sha256(x).digest()).digest()
 groestlHash = lambda x: groestlcoin_hash.getHash(x, len(x))
 
