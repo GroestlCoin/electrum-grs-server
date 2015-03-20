@@ -5,7 +5,7 @@ setup(
     version="0.9",
     scripts=['run_electrum_server','electrum-server'],
     install_requires=['plyvel','jsonrpclib', 'irc>=11', 'groestlcoin_hash'],
-    dependency_links=['git+https://github.com/groestlcoin/groestlcoin-hash-python#egg=groestlcoin_hash']
+    dependency_links=['git+https://github.com/groestlcoin/groestlcoin-hash-python#egg=groestlcoin_hash'],
     package_dir={
         'electrumgrsserver':'src'
         },
