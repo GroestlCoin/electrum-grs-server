@@ -1,7 +1,6 @@
-Electrum-server for the Electrum client
+Electrum-grs-server for the Electrum-GRS client
 =========================================
 
-  * Author: Thomas Voegtlin (ThomasV on the bitcointalk forum)
   * Language: Python
 
 Features
@@ -11,7 +10,7 @@ Features
     described by Alan Reiner (see the 'ultimate blockchain
     compression' thread in the Bitcointalk forum)
 
-  * The server requires bitcoind, leveldb and plyvel
+  * The server requires groestlcoind, leveldb and plyvel
 
   * The server code is open source. Anyone can run a server, removing
     single points of failure concerns.
