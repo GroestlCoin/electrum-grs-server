@@ -28,7 +28,7 @@ pruning_limit = 100
 
 [bitcoind]
 bitcoind_host = localhost
-bitcoind_port = 8332
-# user and password from bitcoin.conf
+bitcoind_port = 1441
+# user and password from groestlcoin.conf
 bitcoind_user = 
 bitcoind_password = 
