@@ -1,18 +1,18 @@
-How to run your own Electrum server
+How to run your own Electrum-GRS server
 ===================================
 
 Abstract
 --------
 
 This document is an easy to follow guide to installing and running your own
-Electrum server on Linux. It is structured as a series of steps you need to
+Electrum-GRS server on Linux. It is structured as a series of steps you need to
 follow, ordered in the most logical way. The next two sections describe some
 conventions we use in this document and the hardware, software, and expertise
 requirements.
 
 The most up-to date version of this document is available at:
 
-    https://github.com/spesmilo/electrum-server/blob/master/HOWTO.md
+    https://github.com/GroestlCoin/electrum-grs-server/blob/master/HOWTO.md
 
 Conventions
 -----------
@@ -67,98 +67,105 @@ has enough RAM to hold and process the leveldb database in tmpfs (e.g. /dev/shm)
 Instructions
 ------------
 
-### Step 1. Create a user for running bitcoind and Electrum server
+### Prepare
+
+aptitude update -y
+aptitude upgrade -y
+apt-get update -y
+apt-get upgrade -y
+apt-get dist-upgrade -y
+dd if=/dev/zero of=/swapfile bs=1M count=1024
+mkswap /swapfile
+swapon /swapfile
+echo "/swapfile swap swap defaults 0 0" >> /etc/fstab 
+
+### Step 1. Create a user for running groestlcoind and Electrum-grs server
 
 This step is optional, but for better security and resource separation I
-suggest you create a separate user just for running `bitcoind` and Electrum.
+suggest you create a separate user just for running `groestlcoind` and Electrum-GRS.
 We will also use the `~/bin` directory to keep locally installed files
 (others might want to use `/usr/local/bin` instead). We will download source
 code files to the `~/src` directory.
 
-    $ sudo adduser bitcoin --disabled-password
+    $ sudo adduser GroestlCoin --disabled-password
     $ sudo apt-get install git
-    $ sudo su - bitcoin
+    $ sudo su - groestlcoin
     $ mkdir ~/bin ~/src
     $ echo $PATH
 
-If you don't see `/home/bitcoin/bin` in the output, you should add this line
+If you don't see `/home/GroestlCoin/bin` in the output, you should add this line
 to your `.bashrc`, `.profile`, or `.bash_profile`, then logout and relogin:
 
     PATH="$HOME/bin:$PATH"
     $ exit
 
-### Step 2. Download bitcoind
+### Step 2. Download groestlcoind
 
-Older versions of Electrum used to require a patched version of bitcoind. 
-This is not the case anymore since bitcoind supports the 'txindex' option.
-We currently recommend bitcoind 0.10.0 stable.
-
-If your package manager does not supply a recent bitcoind or you prefer to compile it yourself,
-here are some pointers for Ubuntu:
-
-    $ sudo apt-get install make g++ python-leveldb libboost-all-dev libssl-dev libdb++-dev pkg-config
-    $ sudo su - bitcoin
-    $ cd ~/src && wget https://bitcoin.org/bin/0.10.0/bitcoin-0.10.0.tar.gz
-    $ sha256sum bitcoin-0.10.0.tar.gz | grep a516cf6d9f58a117607148405334b35d3178df1ba1c59229609d2bcd08d30624
-    $ tar xfz bitcoin-0.10.0.tar.gz
-    $ cd bitcoin-0.10.0
-    $ ./configure --disable-wallet --without-miniupnpc
-    $ make
-    $ strip src/bitcoind src/bitcoin-cli src/bitcoin-tx
-    $ cp -a src/bitcoind src/bitcoin-cli src/bitcoin-tx ~/bin
+    $ sudo apt-get install build-essential libssl-dev libboost-all-dev libdb5.1 libdb5.1-dev libdb5.1++-dev
+    $ apt-get install git ntp make g++ gcc autoconf cpp ngrep iftop sysstat
+    $ sudo su - GroestlCoin
+    $ git clone https://github.com/GroestlCoin/GroestlCoin
+    $ cd GroestlCoin/src
+    $ make -f makefile.unix USE_UPNP=-
+    $ sudo mv GroestlCoind /usr/bin
 
 ### Step 3. Configure and start bitcoind
 
-In order to allow Electrum to "talk" to `bitcoind`, we need to set up an RPC
-username and password for `bitcoind`. We will then start `bitcoind` and
+In order to allow Electrum-GRS to "talk" to `GroestlCoind`, we need to set up an RPC
+username and password for `GroestlCoind`. We will then start `GroestlCoind` and
 wait for it to complete downloading the blockchain.
 
-    $ mkdir ~/.bitcoin
-    $ $EDITOR ~/.bitcoin/bitcoin.conf
+    $ mkdir ~/.GroestlCoin
+    $ nano ~/.GroestlCoin/GroestlCoin.conf
 
-Write this in `bitcoin.conf`:
+Write this in `GroestlCoin.conf`:
 
     rpcuser=<rpc-username>
     rpcpassword=<rpc-password>
     daemon=1
     txindex=1
-
+    rpcallowip=127.0.0.1
+    addnode=groestlcoin.net
+    rpcport=1441
+    maxconnections=1000
+    server=1
+    listen=1
 
 If you have an existing installation of bitcoind and have not previously
 set txindex=1 you need to reindex the blockchain by running
 
-    $ bitcoind -reindex
+    $ GroestlCoind -reindex
 
-If you already have a freshly indexed copy of the blockchain with txindex start `bitcoind`:
+If you already have a freshly indexed copy of the blockchain with txindex start `GroestlCoind`:
 
-    $ bitcoind
+    $ GroestlCoind
 
-Allow some time to pass for `bitcoind` to connect to the network and start
+Allow some time to pass for `GroestlCoind` to connect to the network and start
 downloading blocks. You can check its progress by running:
 
-    $ bitcoin-cli getblockchaininfo
+    $ GroestlCoind getinfo
 
-Before starting the electrum server your bitcoind should have processed all 
+Before starting the electrum server your GroestlCoind should have processed all 
 blocks and caught up to the current height of the network (not just the headers).
-You should also set up your system to automatically start bitcoind at boot
-time, running as the 'bitcoin' user. Check your system documentation to
+You should also set up your system to automatically start groestlCoind at boot
+time, running as the 'GroestlCoin' user. Check your system documentation to
 find out the best way to do this.
 
-### Step 4. Download and install Electrum Server
+### Step 4. Download and install Electrum-GRS Server
 
 We will download the latest git snapshot for Electrum to configure and install it:
 
     $ cd ~
-    $ git clone https://github.com/spesmilo/electrum-server.git
-    $ cd electrum-server
-    $ sudo configure
+    $ git clone https://github.com/groestlcoin/electrum-grs-server.git
+    $ cd electrum-grs-server
+    $ sudo ./configure (default, default, configure rpcuser and rpcpassword)
     $ sudo python setup.py install
 
 See the INSTALL file for more information about the configure and install commands. 
 
-### Optional Step 5: Install Electrum dependencies manually
+### Step 5: Install Electrum-GRS dependencies manually
 
-Electrum server depends on various standard Python libraries and leveldb. These will usually be
+Electrum-GRS server depends on various standard Python libraries and leveldb. These will usually be
 installed by caling "python setup.py install" above. They can be also be installed with your
 package manager if you don't want to use the install routine
 
@@ -193,36 +200,8 @@ The section in the electrum server configuration file (see step 10) looks like t
 
 ### Step 7. Import blockchain into the database or download it
 
-It's recommended to fetch a pre-processed leveldb from the net. 
-The "configure" script above will offer you to download a database with pruning limit 100.
-
-You can fetch recent copies of electrum leveldb databases with differnt pruning limits 
-and further instructions from the Electrum full archival server foundry at:
-http://foundry.electrum.org/
-
-
-Alternatively, if you have the time and nerve, you can import the blockchain yourself.
-
-As of April 2014 it takes between two days and over a week to import 300k blocks, depending
+As of March 2015 it takes between 12 hours to import 523k blocks, depending
 on CPU speed, I/O speed, and your selected pruning limit.
-
-It's considerably faster and strongly recommended to index in memory. You can use /dev/shm or
-or create a tmpfs which will also use swap if you run out of memory:
-
-    $ sudo mount -t tmpfs -o rw,nodev,nosuid,noatime,size=15000M,mode=0777 none /tmpfs
-
-If you use tmpfs make sure you have enough RAM and swap to cover the size. If you only have 4 gigs of
-RAM but add 15 gigs of swap from a file that's fine too. tmpfs is rather smart to swap out the least
-used parts. It's fine to use a file on an SSD for swap in this case. 
-
-It's not recommended to do initial indexing of the database on an SSD because the indexing process
-does at least 20 TB (!) of disk writes and puts considerable wear-and-tear on an SSD. It's a lot better
-to use tmpfs and just swap out to disk when necessary.
-
-Databases have grown to roughly 8 GB in April 2014, give or take a gigabyte between pruning limits 
-100 and 10000. Leveldb prunes the database from time to time, so it's not uncommon to see databases
-~50% larger at times when it's writing a lot, especially when indexing from the beginning.
-
 
 ### Step 8. Create a self-signed SSL cert
 
@@ -245,7 +224,7 @@ When asked for a challenge password just leave it empty and press enter.
     ...
     Country Name (2 letter code) [AU]:US
     State or Province Name (full name) [Some-State]:California
-    Common Name (eg, YOUR name) []: electrum-server.tld
+    Common Name (eg, YOUR name) []: electrum-grs-server.tld
     ...
     A challenge password []:
     ...
@@ -253,83 +232,87 @@ When asked for a challenge password just leave it empty and press enter.
     $ openssl x509 -req -days 730 -in server.csr -signkey server.key -out server.crt
 
 The server.crt file is your certificate suitable for the ssl_certfile= parameter and
-server.key corresponds to ssl_keyfile= in your electrum server config.
-
-Starting with Electrum 1.9, the client will learn and locally cache the SSL certificate 
-for your server upon the first request to prevent man-in-the middle attacks for all
-further connections.
+server.key corresponds to ssl_keyfile= in your electrum-grs server config.
 
 If your certificate is lost or expires on the server side, you will need to run
 your server with a different server name and a new certificate.
 Therefore it's a good idea to make an offline backup copy of your certificate and key
 in case you need to restore it.
 
-### Step 9. Configure Electrum server
+### Step 9. Configure Electrum-grs server
 
-Electrum reads a config file (/etc/electrum.conf) when starting up. This
+Electrum-grs reads a config file (/etc/electrum-grs.conf) when starting up. This
 file includes the database setup, bitcoind RPC setup, and a few other
 options.
 
-The "configure" script listed above will create a config file at /etc/electrum.conf
+The "configure" script listed above will create a config file at /etc/electrum-grs.conf
 which you can edit to modify the settings.
 
-Go through the config options and set them to your liking.
+Go through the config options and configure it:
+   $ sudo nano /etc/electrum-grs.conf
+   $ edit bitcoind_port to 1441
+
 If you intend to run the server publicly have a look at README-IRC.md
 
 ### Step 10. Tweak your system for running electrum
 
-Electrum server currently needs quite a few file handles to use leveldb. It also requires
+Electrum-grs server currently needs quite a few file handles to use leveldb. It also requires
 file handles for each connection made to the server. It's good practice to increase the
 open files limit to 64k. 
 
-The "configure" script will take care of this and ask you to create a user for running electrum-server.
-If you're using user bitcoin to run electrum and have added it manually like shown in this HOWTO run 
+The "configure" script will take care of this and ask you to create a user for running electrum-grs-server.
+If you're using user GroestlCoin to run electrum-grs and have added it manually like shown in this HOWTO run 
 the following code to add the limits to your /etc/security/limits.conf:
 
-     echo "bitcoin hard nofile 65536" >> /etc/security/limits.conf
-     echo "bitcoin soft nofile 65536" >> /etc/security/limits.conf
+     echo "GroestlCoind hard nofile 65536" >> /etc/security/limits.conf
+     echo "GroestlCoind soft nofile 65536" >> /etc/security/limits.conf
 
 Two more things for you to consider:
 
-1. To increase security you may want to close bitcoind for incoming connections and connect outbound only
+1. To increase security you may want to close GroestlCoind for incoming connections and connect outbound only
 
-2. Consider restarting bitcoind (together with electrum-server) on a weekly basis to clear out unconfirmed
+2. Consider restarting GroestlCoind (together with electrum-grs-server) on a weekly basis to clear out unconfirmed
    transactions from the local the memory pool which did not propagate over the network.
 
-### Step 11. (Finally!) Run Electrum server
+Run also these command:
 
-The magic moment has come: you can now start your Electrum server as root (it will su to your unprivileged user):
+   $ sudo chown electrum-grs /var/log/electrum-grs.log
+   $ sudo mkdir /var/electrum-grs-server
+   $ sudo chown -R electrum-grs /var/electrum-grs-server
 
-    # electrum-server start
+### Step 11. (Finally!) Run Electrum-GRS server
 
-Note: If you want to run the server without installing it on your system, just run 'run_electrum_server" as the
+The magic moment has come: you can now start your Electrum-GRS server as root (it will su to your unprivileged user):
+
+    # electrum-grs-server start (or sudo su electrum-grs -c "./run_electrum_grs_server")
+
+Note: If you want to run the server without installing it on your system, just run 'run_electrum_grs_server" as the
 unprivileged user.
 
 You should see this in the log file:
 
     starting Electrum server
 
-If you want to stop Electrum server, use the 'stop' command:
+If you want to stop Electrum-grs server, use the 'stop' command:
 
-    # electrum-server stop
+    # electrum-grs-server stop
 
-
-If your system supports it, you may add electrum-server to the /etc/init.d directory. 
+If your system supports it, you may add electrum-grs-server to the /etc/init.d directory. 
 This will ensure that the server is started and stopped automatically, and that the database is closed 
 safely whenever your machine is rebooted.
 
-    # ln -s `which electrum-server` /etc/init.d/electrum-server
-    # update-rc.d electrum-server defaults
+    # ln -s `which electrum-grs-server` /etc/init.d/electrum-grs-server
+    # update-rc.d electrum-grs-server defaults
 
-### Step 12. Test the Electrum server
+### Step 12. Test the Electrum-grs server
 
-We will assume you have a working Electrum client, a wallet, and some
+We will assume you have a working Electru-grsm client, a wallet, and some
 transactions history. You should start the client and click on the green
 checkmark (last button on the right of the status bar) to open the Server
 selection window. If your server is public, you should see it in the list
 and you can select it. If you server is private, you need to enter its IP
 or hostname and the port. Press 'Ok' and the client will disconnect from the
-current server and connect to your new Electrum server. You should see your
+current server and connect to your new Electrum-grs server. You should see your
 addresses and transactions history. You can see the number of blocks and
 response time in the Server selection window. You should send/receive some
 bitcoins to confirm that everything is working properly.
@@ -337,11 +320,11 @@ bitcoins to confirm that everything is working properly.
 ### Step 13. Join us on IRC, subscribe to the server thread
 
 Say hi to the dev crew, other server operators, and fans on 
-irc.freenode.net #electrum and we'll try to congratulate you
-on supporting the community by running an Electrum node.
+irc.freenode.net #groestlcoin and we'll try to congratulate you
+on supporting the community by running an Electrum-GRS node.
 
-If you're operating a public Electrum server please subscribe
+If you're operating a public Electrum-grs server please subscribe
 to or regulary check the following thread:
-https://bitcointalk.org/index.php?topic=85475.0
-It'll contain announcements about important updates to Electrum
+https://bitcointalk.org/index.php?topic=525926.0
+It'll contain announcements about important updates to Electrum-grs
 server required for a smooth user experience.
