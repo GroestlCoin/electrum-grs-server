@@ -254,7 +254,7 @@ Go through the config options and configure it:
 
 If you intend to run the server publicly have a look at README-IRC.md
 
-### Step 10. Tweak your system for running electrum
+### Step 10. Tweak and configure your system for running electrum
 
 Electrum-grs server currently needs quite a few file handles to use leveldb. It also requires
 file handles for each connection made to the server. It's good practice to increase the
@@ -275,10 +275,9 @@ Two more things for you to consider:
    transactions from the local the memory pool which did not propagate over the network.
 
 Run also these command:
-
-   $ sudo chown electrum-grs /var/log/electrum-grs.log
-   $ sudo mkdir /var/electrum-grs-server
-   $ sudo chown -R electrum-grs /var/electrum-grs-server
+	  $ sudo chown electrum-grs /var/log/electrum-grs.log
+	  $ sudo mkdir /var/electrum-grs-server
+	  $ sudo chown -R electrum-grs /var/electrum-grs-server
 
 ### Step 11. (Finally!) Run Electrum-GRS server
 
