@@ -96,16 +96,20 @@ def create_config(filename=None):
     config.set('server', 'report_stratum_http_ssl_port', '')
     config.set('server', 'ssl_certfile', '')
     config.set('server', 'ssl_keyfile', '')
-    config.set('server', 'password', '')
     config.set('server', 'irc', 'no')
     config.set('server', 'irc_nick', '')
     config.set('server', 'coin', '')
     config.set('server', 'logfile', '/var/log/electrum-grs.log')
     config.set('server', 'donation_address', '')
+    config.set('server', 'max_subscriptions', '10000')
 
     config.add_section('leveldb')
     config.set('leveldb', 'path', '/dev/shm/electrum_grs_db')
     config.set('leveldb', 'pruning_limit', '100')
+    config.set('leveldb', 'utxo_cache', str(64*1024*1024))
+    config.set('leveldb', 'hist_cache', str(128*1024*1024))
+    config.set('leveldb', 'addr_cache', str(16*1024*1024))
+    config.set('leveldb', 'profiler', 'no')
 
     # set network parameters
     config.add_section('network')
@@ -145,6 +149,8 @@ def run_rpc_command(params, electrum_rpc_port):
                                                    item.get('version'),
                                                    (now - item.get('time')),
                                                    )
+    elif cmd == 'debug':
+        print r
     else:
         print json.dumps(r, indent=4, sort_keys=True)
 
@@ -179,12 +185,22 @@ def cmd_peers():
 def cmd_numpeers():
     return len(server_proc.peers)
 
+
+hp = None
+def cmd_guppy():
+    from guppy import hpy
+    global hp
+    hp = hpy()
+
 def cmd_debug(s):
+    import traceback
+    import gc
     if s:
         try:
             result = str(eval(s))
         except:
-            result = "error"
+            err_lines = traceback.format_exc().splitlines()
+            result = '%s | %s' % (err_lines[-3], err_lines[-1])
         return result
 
 
@@ -194,18 +210,23 @@ def get_port(config, name):
     except:
         return None
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--conf', metavar='path', default=None, help='specify a configuration file')
-    parser.add_argument('command', nargs='*', default=[], help='send a command to the server')
-    args = parser.parse_args()
 
-    config = create_config(args.conf)
+# share these as global, for 'debug' command
+shared = None
+chain_proc = None
+server_proc = None
+dispatcher = None
+transports = []
+tcp_server = None
+ssl_server = None
+
+def start_server(config):
+    global shared, chain_proc, server_proc, dispatcher
+    global tcp_server, ssl_server
+
     logfile = config.get('server', 'logfile')
     utils.init_logger(logfile)
-    password = config.get('server', 'password')
     host = config.get('server', 'host')
-    electrum_rpc_port = get_port(config, 'electrum_rpc_port')
     stratum_tcp_port = get_port(config, 'stratum_tcp_port')
     stratum_http_port = get_port(config, 'stratum_http_port')
     stratum_tcp_ssl_port = get_port(config, 'stratum_tcp_ssl_port')
@@ -218,6 +239,64 @@ if __name__ == '__main__':
     if ssl_certfile is '' or ssl_keyfile is '':
         stratum_tcp_ssl_port = None
         stratum_http_ssl_port = None
+
+    print_log("Starting Electrum server on", host)
+
+    # Create hub
+    dispatcher = Dispatcher(config)
+    shared = dispatcher.shared
+
+    # handle termination signals
+    import signal
+    def handler(signum = None, frame = None):
+        print_log('Signal handler called with signal', signum)
+        shared.stop()
+    for sig in [signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT]:
+        signal.signal(sig, handler)
+
+    # Create and register processors
+    chain_proc = BlockchainProcessor(config, shared)
+    dispatcher.register('blockchain', chain_proc)
+
+    server_proc = ServerProcessor(config, shared)
+    dispatcher.register('server', server_proc)
+
+    # Create various transports we need
+    if stratum_tcp_port:
+        tcp_server = TcpServer(dispatcher, host, stratum_tcp_port, False, None, None)
+        transports.append(tcp_server)
+
+    if stratum_tcp_ssl_port:
+        ssl_server = TcpServer(dispatcher, host, stratum_tcp_ssl_port, True, ssl_certfile, ssl_keyfile)
+        transports.append(ssl_server)
+
+    if stratum_http_port:
+        http_server = HttpServer(dispatcher, host, stratum_http_port, False, None, None)
+        transports.append(http_server)
+
+    if stratum_http_ssl_port:
+        https_server = HttpServer(dispatcher, host, stratum_http_ssl_port, True, ssl_certfile, ssl_keyfile)
+        transports.append(https_server)
+
+    for server in transports:
+        server.start()
+
+
+def stop_server():
+    shared.stop()
+    server_proc.join()
+    chain_proc.join()
+    print_log("Electrum-GRS Server stopped")
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--conf', metavar='path', default=None, help='specify a configuration file')
+    parser.add_argument('command', nargs='*', default=[], help='send a command to the server')
+    args = parser.parse_args()
+    config = create_config(args.conf)
+
+    electrum_rpc_port = get_port(config, 'electrum_rpc_port')
 
     if len(args.command) >= 1:
         try:
@@ -237,51 +316,7 @@ if __name__ == '__main__':
         print "server already running"
         sys.exit(1)
 
-
-    print_log("Starting Electrum server on", host)
-
-    # Create hub
-    dispatcher = Dispatcher(config)
-    shared = dispatcher.shared
-
-    # handle termination signals
-    import signal
-    def handler(signum = None, frame = None):
-        print_log('Signal handler called with signal', signum)
-        shared.stop()
-    for sig in [signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT]:
-        signal.signal(sig, handler)
-
-
-    # Create and register processors
-    chain_proc = BlockchainProcessor(config, shared)
-    dispatcher.register('blockchain', chain_proc)
-
-    server_proc = ServerProcessor(config, shared)
-    dispatcher.register('server', server_proc)
-
-    transports = []
-    # Create various transports we need
-    if stratum_tcp_port:
-        tcp_server = TcpServer(dispatcher, host, stratum_tcp_port, False, None, None)
-        transports.append(tcp_server)
-
-    if stratum_tcp_ssl_port:
-        tcp_server = TcpServer(dispatcher, host, stratum_tcp_ssl_port, True, ssl_certfile, ssl_keyfile)
-        transports.append(tcp_server)
-
-    if stratum_http_port:
-        http_server = HttpServer(dispatcher, host, stratum_http_port, False, None, None)
-        transports.append(http_server)
-
-    if stratum_http_ssl_port:
-        http_server = HttpServer(dispatcher, host, stratum_http_ssl_port, True, ssl_certfile, ssl_keyfile)
-        transports.append(http_server)
-
-    for server in transports:
-        server.start()
-
-    
+    start_server(config)
 
     from SimpleXMLRPCServer import SimpleXMLRPCServer
     server = SimpleXMLRPCServer(('localhost', electrum_rpc_port), allow_none=True, logRequests=False)
@@ -293,6 +328,7 @@ if __name__ == '__main__':
     server.register_function(cmd_peers, 'peers')
     server.register_function(cmd_numpeers, 'numpeers')
     server.register_function(cmd_debug, 'debug')
+    server.register_function(cmd_guppy, 'guppy')
     server.register_function(cmd_banner_update, 'banner_update')
     server.socket.settimeout(1)
  
@@ -302,8 +338,4 @@ if __name__ == '__main__':
         except socket.timeout:
             continue
         except:
-            shared.stop()
-
-    server_proc.join()
-    chain_proc.join()
-    print_log("Electrum Server stopped")
+            stop_server()

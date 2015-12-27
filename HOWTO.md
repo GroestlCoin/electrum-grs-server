@@ -55,7 +55,7 @@ Python libraries. Python 2.7 is the minimum supported version.
 **Hardware.** The lightest setup is a pruning server with diskspace 
 requirements of about 10 GB for the electrum database. However note that 
 you also need to run bitcoind and keep a copy of the full blockchain, 
-which is roughly 20 GB in April 2014. If you have less than 2 GB of RAM 
+which is roughly 37 GB in July 2015. If you have less than 2 GB of RAM 
 make sure you limit bitcoind to 8 concurrent connections. If you have more 
 resources to spare you can run the server with a higher limit of historic 
 transactions per address. CPU speed is important for the initial block 
@@ -107,9 +107,10 @@ to your `.bashrc`, `.profile`, or `.bash_profile`, then logout and relogin:
     $ git clone https://github.com/GroestlCoin/GroestlCoin
     $ cd GroestlCoin/src
     $ make -f makefile.unix USE_UPNP=-
-    $ sudo mv GroestlCoind /usr/bin
+    $ strip src/groestlcoind src/groestlcoin-cli src/groestlcoin-tx
+    $ cp -a src/groestlcoind src/groestlcoin-cli src/groestlcoin-tx ~/bin
 
-### Step 3. Configure and start bitcoind
+### Step 3. Configure and start groestlcoind
 
 In order to allow Electrum-GRS to "talk" to `GroestlCoind`, we need to set up an RPC
 username and password for `GroestlCoind`. We will then start `GroestlCoind` and
@@ -266,6 +267,21 @@ the following code to add the limits to your /etc/security/limits.conf:
 
      echo "GroestlCoind hard nofile 65536" >> /etc/security/limits.conf
      echo "GroestlCoind soft nofile 65536" >> /etc/security/limits.conf
+
+If you are on Debian > 8.0 Jessie or other distribution based on it, you also need to add these lines in /etc/pam.d/common-session and /etc/pam.d/common-session-noninteractive otherwise the limits in /etc/security/limits.conf will not work:
+
+    echo "session required pam_limits.so" >> /etc/pam.d/common-session
+    echo "session required pam_limits.so" >> /etc/pam.d/common-session-noninteractive
+    
+Check if the limits are changed either by logging with the user configured to run Electrum server as. Example:
+
+    su - bitcoin
+    ulimit -n
+
+Or if you use sudo and the user is added to sudoers group:
+
+    sudo -u bitcoin -i ulimit -n
+
 
 Two more things for you to consider:
 

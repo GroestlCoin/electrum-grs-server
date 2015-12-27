@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="electrum-grs-server",
-    version="0.9",
+    version="1.0",
     scripts=['run_electrum_grs_server','electrum-grs-server'],
     install_requires=['plyvel','jsonrpclib', 'irc>=11', 'groestlcoin_hash'],
     dependency_links=['git+https://github.com/groestlcoin/groestlcoin-hash-python#egg=groestlcoin_hash'],

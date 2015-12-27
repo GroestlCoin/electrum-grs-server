@@ -1,5 +1,5 @@
 The following is a quick installation guide. Please see HOWTO.md for more
-detailled information on how to configure your server.
+detailed information on how to configure your server.
 
 
 TLDR:
@@ -20,7 +20,7 @@ You will need to run Groestlcoind with the config option txindex=1. If you
 have not previously done so, you may need to reindex the Groestlcoind
 blockchain
 
-A full Groestlcoin node is required in order to know for each
+Note: you cannot use a pruning groestlcoind. A full Groestlcoin node is required in order to know for each
 address if it has been used. Pruning occurs only at the level of the
 Electrum-GRS database.
 
