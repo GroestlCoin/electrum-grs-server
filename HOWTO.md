@@ -12,7 +12,7 @@ requirements.
 
 The most up-to date version of this document is available at:
 
-    https://github.com/GroestlCoin/electrum-grs-server/blob/master/HOWTO.md
+    https://github.com/Groestlcoin/electrum-grs-server/blob/master/HOWTO.md
 
 Conventions
 -----------
@@ -20,8 +20,8 @@ Conventions
 In this document, lines starting with a hash sign (#) or a dollar sign ($)
 contain commands. Commands starting with a hash should be run as root,
 commands starting with a dollar should be run as a normal user (in this
-document, we assume that user is called 'bitcoin'). We also assume the
-bitcoin user has sudo rights, so we use '$ sudo command' when we need to.
+document, we assume that user is called 'electrum-grs'). We also assume the
+electrum-grs user has sudo rights, so we use '$ sudo command' when we need to.
 
 Strings that are surrounded by "lower than" and "greater than" ( < and > )
 should be replaced by the user with something appropriate. For example,
@@ -53,10 +53,10 @@ build chain. You will need root access in order to install other software or
 Python libraries. Python 2.7 is the minimum supported version.
 
 **Hardware.** The lightest setup is a pruning server with diskspace 
-requirements of about 10 GB for the electrum database. However note that 
-you also need to run bitcoind and keep a copy of the full blockchain, 
-which is roughly 37 GB in July 2015. If you have less than 2 GB of RAM 
-make sure you limit bitcoind to 8 concurrent connections. If you have more 
+requirements of about 125 MB for the electrum database. However note that 
+you also need to run groestlcoind and keep a copy of the full blockchain, 
+which is roughly 500 MB in January 2016. If you have less than 2 GB of RAM 
+make sure you limit groestlcoind to 8 concurrent connections. If you have more 
 resources to spare you can run the server with a higher limit of historic 
 transactions per address. CPU speed is important for the initial block 
 chain import, but is also important if you plan to run a public Electrum server, 
@@ -87,13 +87,13 @@ We will also use the `~/bin` directory to keep locally installed files
 (others might want to use `/usr/local/bin` instead). We will download source
 code files to the `~/src` directory.
 
-    $ sudo adduser GroestlCoin --disabled-password
+    $ sudo adduser electrum-grs --disabled-password
     $ sudo apt-get install git
-    $ sudo su - groestlcoin
+    $ sudo su - electrum-grs
     $ mkdir ~/bin ~/src
     $ echo $PATH
 
-If you don't see `/home/GroestlCoin/bin` in the output, you should add this line
+If you don't see `/home/electrum-grs/bin` in the output, you should add this line
 to your `.bashrc`, `.profile`, or `.bash_profile`, then logout and relogin:
 
     PATH="$HOME/bin:$PATH"
@@ -101,23 +101,25 @@ to your `.bashrc`, `.profile`, or `.bash_profile`, then logout and relogin:
 
 ### Step 2. Download groestlcoind
 
-    $ sudo apt-get install build-essential libssl-dev libboost-all-dev libdb5.1 libdb5.1-dev libdb5.1++-dev
-    $ apt-get install git ntp make g++ gcc autoconf cpp ngrep iftop sysstat
-    $ sudo su - GroestlCoin
-    $ git clone https://github.com/GroestlCoin/GroestlCoin
-    $ cd GroestlCoin/src
-    $ make -f makefile.unix USE_UPNP=-
+    $ sudo apt-get build-essential libssl-dev libboost-all-dev libdb5.1 libdb5.1-dev libdb5.1++-dev libtool
+    $ apt-get install git ntp make g++ gcc autoconf cpp ngrep iftop sysstat autotools-dev pkg-config
+    $ sudo su - electrum-grs
+    $ git clone https://github.com/groestlcoin/groestlcoin
+    $ cd groestlcoin
+    $ ./autogen.sh
+    $ configure --with-incompatible-bdb
+    $ make
     $ strip src/groestlcoind src/groestlcoin-cli src/groestlcoin-tx
     $ cp -a src/groestlcoind src/groestlcoin-cli src/groestlcoin-tx ~/bin
 
 ### Step 3. Configure and start groestlcoind
 
-In order to allow Electrum-GRS to "talk" to `GroestlCoind`, we need to set up an RPC
-username and password for `GroestlCoind`. We will then start `GroestlCoind` and
+In order to allow Electrum-GRS to "talk" to `groestlcoind`, we need to set up an RPC
+username and password for `groestlcoind`. We will then start `groestlcoind` and
 wait for it to complete downloading the blockchain.
 
-    $ mkdir ~/.GroestlCoin
-    $ nano ~/.GroestlCoin/GroestlCoin.conf
+    $ mkdir ~/.groestlcoin
+    $ nano ~/.groestlcoin/groestlcoin.conf
 
 Write this in `GroestlCoin.conf`:
 
@@ -126,35 +128,38 @@ Write this in `GroestlCoin.conf`:
     daemon=1
     txindex=1
     rpcallowip=127.0.0.1
-    addnode=groestlcoin.net
+    addnode=groestlcoin.org
+    addnode=jswallet.groestlcoin.org
+    addnode=electrum1.groestlcoin.org
+    addnode=electrum2.groestlcoin.org
     rpcport=1441
-    maxconnections=1000
+    maxconnections=873
     server=1
     listen=1
 
-If you have an existing installation of bitcoind and have not previously
+If you have an existing installation of groestlcoind and have not previously
 set txindex=1 you need to reindex the blockchain by running
 
-    $ GroestlCoind -reindex
+    $ groestlcoind -reindex
 
-If you already have a freshly indexed copy of the blockchain with txindex start `GroestlCoind`:
+If you already have a freshly indexed copy of the blockchain with txindex start `groestlcoind`:
 
-    $ GroestlCoind
+    $ groestlcoind
 
-Allow some time to pass for `GroestlCoind` to connect to the network and start
+Allow some time to pass for `groestlcoind` to connect to the network and start
 downloading blocks. You can check its progress by running:
 
-    $ GroestlCoind getinfo
+    $ groestlcoin-cli getinfo
 
-Before starting the electrum server your GroestlCoind should have processed all 
+Before starting the electrum server your groestlCoind should have processed all 
 blocks and caught up to the current height of the network (not just the headers).
-You should also set up your system to automatically start groestlCoind at boot
-time, running as the 'GroestlCoin' user. Check your system documentation to
+You should also set up your system to automatically start groestlcoind at boot
+time, running as the 'electrum-grs' user. Check your system documentation to
 find out the best way to do this.
 
 ### Step 4. Download and install Electrum-GRS Server
 
-We will download the latest git snapshot for Electrum to configure and install it:
+We will download the latest git snapshot for Electrum-GRS to configure and install it:
 
     $ cd ~
     $ git clone https://github.com/groestlcoin/electrum-grs-server.git
@@ -201,7 +206,7 @@ The section in the electrum server configuration file (see step 10) looks like t
 
 ### Step 7. Import blockchain into the database or download it
 
-As of March 2015 it takes between 12 hours to import 523k blocks, depending
+As of January 2016 it takes several hours to import 910k blocks, depending
 on CPU speed, I/O speed, and your selected pruning limit.
 
 ### Step 8. Create a self-signed SSL cert
@@ -262,32 +267,32 @@ file handles for each connection made to the server. It's good practice to incre
 open files limit to 64k. 
 
 The "configure" script will take care of this and ask you to create a user for running electrum-grs-server.
-If you're using user GroestlCoin to run electrum-grs and have added it manually like shown in this HOWTO run 
+If you're using user electrum-grs to run electrum-grs and have added it manually like shown in this HOWTO run 
 the following code to add the limits to your /etc/security/limits.conf:
 
-     echo "GroestlCoind hard nofile 65536" >> /etc/security/limits.conf
-     echo "GroestlCoind soft nofile 65536" >> /etc/security/limits.conf
+     echo "groestlcoind hard nofile 65536" >> /etc/security/limits.conf
+     echo "groestlcoind soft nofile 65536" >> /etc/security/limits.conf
 
 If you are on Debian > 8.0 Jessie or other distribution based on it, you also need to add these lines in /etc/pam.d/common-session and /etc/pam.d/common-session-noninteractive otherwise the limits in /etc/security/limits.conf will not work:
 
     echo "session required pam_limits.so" >> /etc/pam.d/common-session
     echo "session required pam_limits.so" >> /etc/pam.d/common-session-noninteractive
     
-Check if the limits are changed either by logging with the user configured to run Electrum server as. Example:
+Check if the limits are changed either by logging with the user configured to run Electrum-GRS server as. Example:
 
-    su - bitcoin
+    su - electrum-grs
     ulimit -n
 
 Or if you use sudo and the user is added to sudoers group:
 
-    sudo -u bitcoin -i ulimit -n
+    sudo -u electrum-grs -i ulimit -n
 
 
 Two more things for you to consider:
 
-1. To increase security you may want to close GroestlCoind for incoming connections and connect outbound only
+1. To increase security you may want to close groestlcoind for incoming connections and connect outbound only
 
-2. Consider restarting GroestlCoind (together with electrum-grs-server) on a weekly basis to clear out unconfirmed
+2. Consider restarting groestlcoind (together with electrum-grs-server) on a weekly basis to clear out unconfirmed
    transactions from the local the memory pool which did not propagate over the network.
 
 Run also these command:
@@ -299,7 +304,7 @@ Run also these command:
 
 The magic moment has come: you can now start your Electrum-GRS server as root (it will su to your unprivileged user):
 
-    # electrum-grs-server start (or sudo su electrum-grs -c "./run_electrum_grs_server")
+    # electrum-grs-server start (or sudo su electrum-grs -c "./run_electrum_grs_server.py")
 
 Note: If you want to run the server without installing it on your system, just run 'run_electrum_grs_server" as the
 unprivileged user.
@@ -321,7 +326,7 @@ safely whenever your machine is rebooted.
 
 ### Step 12. Test the Electrum-grs server
 
-We will assume you have a working Electru-grsm client, a wallet, and some
+We will assume you have a working Electrum-GRS client, a wallet, and some
 transactions history. You should start the client and click on the green
 checkmark (last button on the right of the status bar) to open the Server
 selection window. If your server is public, you should see it in the list
