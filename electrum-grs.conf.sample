@@ -23,7 +23,7 @@ donation_address =
 # path to your database
 path = 
 # for each address, history will be pruned if it is longer than this limit
-pruning_limit = 100
+pruning_limit = 1000
 
 # cache sizes in bytes, the default is optimized for ~4 GB RAM setups to run bitcoind alongside
 # If you have lots of RAM increase up to 16 times for best performance 

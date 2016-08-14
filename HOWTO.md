@@ -202,7 +202,7 @@ The section in the electrum server configuration file (see step 10) looks like t
      [leveldb]
      path = /path/to/your/database
      # for each address, history will be pruned if it is longer than this limit
-     pruning_limit = 100
+     pruning_limit = 1000
 
 ### Step 7. Import blockchain into the database or download it
 
