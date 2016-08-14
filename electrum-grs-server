@@ -8,7 +8,7 @@ if [ ! -f $electrum_config ]; then
     exit 1
 fi
 
-if ! hash run_electrum_grs_server 2>/dev/null; then
+if ! hash run_electrum_grs_server.py 2>/dev/null; then
     echo "run_electrum_grs_server.py is not installed"
     echo "Please run 'python setup.py install'"
     exit 1
