@@ -78,9 +78,9 @@ if ! [ "$logfile" ]; then
 fi
 
 
-# remove directory if it exists and is empty
-if [ -d $path ]; then
-    rmdir $path --ignore-fail-on-non-empty
+# create path if it does not exist
+if [ ! -d $path ]; then
+    mkdir -p $path
 fi
 
 
