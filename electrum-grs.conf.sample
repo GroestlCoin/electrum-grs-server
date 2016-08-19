@@ -14,8 +14,8 @@ banner = Welcome to Electrum-GRS!
 banner_file = /etc/electrum-grs.banner
 #irc = no
 #irc_nick = <yournickname>
-#ssl_certfile = /path/to/electrum-server.crt
-#ssl_keyfile = /path/to/electrum-server.key
+#ssl_certfile = /var/electrum-grs-server/server.crt
+#ssl_keyfile = /var/electrum-grs-server/server.key
 logfile = /var/log/electrum-grs.log
 donation_address = 
 
