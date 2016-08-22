@@ -46,7 +46,7 @@ fi
 # create user
 #if [ ! id -u $user >/dev/null 2>&1 ]; then
     echo "adding user $user"
-    adduser --disabled-password --gecos $user
+    adduser --disabled-password --gecos "" $user
     echo "$user hard nofile 65536" >> /etc/security/limits.conf
     echo "$user soft nofile 65536" >> /etc/security/limits.conf
 #fi
