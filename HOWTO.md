@@ -107,7 +107,7 @@ to your `.bashrc`, `.profile`, or `.bash_profile`, then logout and relogin:
     $ git clone https://github.com/groestlcoin/groestlcoin
     $ cd groestlcoin
     $ ./autogen.sh
-    $ configure --with-incompatible-bdb
+    $ ./configure --with-incompatible-bdb
     $ make
     $ strip src/groestlcoind src/groestlcoin-cli src/groestlcoin-tx
     $ cp -a src/groestlcoind src/groestlcoin-cli src/groestlcoin-tx ~/bin
