@@ -1,26 +1,31 @@
 #!/usr/bin/env python
+# Copyright(C) 2011-2016 Thomas Voegtlin
 #
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2011 thomasv@gitorious
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 from itertools import imap
 import threading
 import time
 import hashlib
-import sys
+import struct
 import groestlcoin_hash
 
 __b58chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -33,12 +38,6 @@ SCRIPT_ADDRESS = 5
 
 def rev_hex(s):
     return s.decode('hex')[::-1].encode('hex')
-
-
-def int_to_hex(i, length=1):
-    s = hex(i)[2:].rstrip('L')
-    s = "0"*(2*length - len(s)) + s
-    return rev_hex(s)
 
 
 singleSha256 = lambda x: hashlib.sha256(x).digest()
@@ -57,26 +56,46 @@ def header_to_string(res):
     if pbh is None:
         pbh = '0'*64
 
-    return int_to_hex(res.get('version'), 4) \
-        + rev_hex(pbh) \
-        + rev_hex(res.get('merkle_root')) \
-        + int_to_hex(int(res.get('timestamp')), 4) \
-        + int_to_hex(int(res.get('bits')), 4) \
-        + int_to_hex(int(res.get('nonce')), 4)
+    return int_to_hex4(res.get('version')) \
+           + rev_hex(pbh) \
+           + rev_hex(res.get('merkle_root')) \
+           + int_to_hex4(int(res.get('timestamp'))) \
+           + int_to_hex4(int(res.get('bits'))) \
+           + int_to_hex4(int(res.get('nonce')))
 
 
-def hex_to_int(s):
-    return int('0x' + s[::-1].encode('hex'), 16)
+_unpack_bytes4_to_int = struct.Struct("<L").unpack
+_unpack_bytes8_to_int = struct.Struct("<Q").unpack
+
+
+def bytes4_to_int(s):
+    return _unpack_bytes4_to_int(s)[0]
+
+
+def bytes8_to_int(s):
+    return _unpack_bytes8_to_int(s)[0]
+
+
+int_to_bytes4 = struct.Struct('<L').pack
+int_to_bytes8 = struct.Struct('<Q').pack
+
+
+def int_to_hex4(i):
+    return int_to_bytes4(i).encode('hex')
+
+
+def int_to_hex8(i):
+    return int_to_bytes8(i).encode('hex')
 
 
 def header_from_string(s):
     return {
-        'version': hex_to_int(s[0:4]),
+        'version': bytes4_to_int(s[0:4]),
         'prev_block_hash': hash_encode(s[4:36]),
         'merkle_root': hash_encode(s[36:68]),
-        'timestamp': hex_to_int(s[68:72]),
-        'bits': hex_to_int(s[72:76]),
-        'nonce': hex_to_int(s[76:80]),
+        'timestamp': bytes4_to_int(s[68:72]),
+        'bits': bytes4_to_int(s[72:76]),
+        'nonce': bytes4_to_int(s[76:80]),
     }
 
 
@@ -223,15 +242,11 @@ def timestr():
 import logging
 import logging.handlers
 
+logging.basicConfig(format="%(asctime)-11s %(message)s", datefmt="[%d/%m/%Y-%H:%M:%S]")
 logger = logging.getLogger('electrum')
 
-def init_logger(logfile):
-    hdlr = logging.handlers.WatchedFileHandler(logfile)
-    formatter = logging.Formatter('%(asctime)s %(message)s', "[%d/%m/%Y-%H:%M:%S]")
-    hdlr.setFormatter(formatter)
-    logger.addHandler(hdlr) 
+def init_logger():
     logger.setLevel(logging.INFO)
-
 
 def print_log(*args):
     logger.info(" ".join(imap(str, args)))

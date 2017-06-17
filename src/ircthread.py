@@ -1,7 +1,32 @@
+#!/usr/bin/env python
+# Copyright(C) 2011-2016 Thomas Voegtlin
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import re
 import time
 import socket
+import ssl
 import threading
+import Queue
 import irc.client
 from utils import logger
 from utils import Hash
@@ -15,25 +40,19 @@ class IrcThread(threading.Thread):
         threading.Thread.__init__(self)
         self.processor = processor
         self.daemon = True
-        self.stratum_tcp_port = config.get('server', 'stratum_tcp_port')
-        self.stratum_http_port = config.get('server', 'stratum_http_port')
-        self.stratum_tcp_ssl_port = config.get('server', 'stratum_tcp_ssl_port')
-        self.stratum_http_ssl_port = config.get('server', 'stratum_http_ssl_port')
-        self.report_stratum_tcp_port = config.get('server', 'report_stratum_tcp_port')
-        self.report_stratum_http_port = config.get('server', 'report_stratum_http_port')
-        self.report_stratum_tcp_ssl_port = config.get('server', 'report_stratum_tcp_ssl_port')
-        self.report_stratum_http_ssl_port = config.get('server', 'report_stratum_http_ssl_port')
-        self.host = config.get('server', 'host')
-        self.report_host = config.get('server', 'report_host')
-        self.nick = config.get('server', 'irc_nick')
+        options = dict(config.items('server'))
+        self.stratum_tcp_port = options.get('stratum_tcp_port')
+        self.stratum_tcp_ssl_port = options.get('stratum_tcp_ssl_port')
+        self.report_stratum_tcp_port = options.get('report_stratum_tcp_port')
+        self.report_stratum_tcp_ssl_port = options.get('report_stratum_tcp_ssl_port')
+        self.irc_bind_ip = options.get('irc_bind_ip')
+        self.host = options.get('host')
+        self.report_host = options.get('report_host')
+        self.nick = options.get('irc_nick')
         if self.report_stratum_tcp_port:
             self.stratum_tcp_port = self.report_stratum_tcp_port
-        if self.report_stratum_http_port:
-            self.stratum_http_port = self.report_stratum_http_port
         if self.report_stratum_tcp_ssl_port:
             self.stratum_tcp_ssl_port = self.report_stratum_tcp_ssl_port
-        if self.report_stratum_http_ssl_port:
-            self.stratum_http_ssl_port = self.report_stratum_http_ssl_port
         if self.report_host:
             self.host = self.report_host
         if not self.nick:
@@ -42,6 +61,7 @@ class IrcThread(threading.Thread):
         self.pruning_limit = config.get('leveldb', 'pruning_limit')
         self.nick = 'E-grs_' + self.nick
         self.password = None
+        self.who_queue = Queue.Queue()
 
     def getname(self):
         s = 'v' + VERSION + ' '
@@ -49,7 +69,7 @@ class IrcThread(threading.Thread):
             s += 'p' + self.pruning_limit + ' '
 
         def add_port(letter, number):
-            DEFAULT_PORTS = {'t':'50001', 's':'50002', 'h':'8081', 'g':'8082'}
+            DEFAULT_PORTS = {'t':'50001', 's':'50002'}
             if not number: return ''
             if DEFAULT_PORTS[letter] == number:
                 return letter + ' '
@@ -57,28 +77,26 @@ class IrcThread(threading.Thread):
                 return letter + number + ' '
 
         s += add_port('t',self.stratum_tcp_port)
-        s += add_port('h',self.stratum_http_port)
         s += add_port('s',self.stratum_tcp_ssl_port)
-        s += add_port('g',self.stratum_http_ssl_port)
         return s
 
     def start(self, queue):
         self.queue = queue
         threading.Thread.start(self)
- 
+
     def on_connect(self, connection, event):
         connection.join("#GroestlCoin")
 
     def on_join(self, connection, event):
         m = re.match("(E-grs_.*)!", event.source)
         if m:
-            connection.who(m.group(1))
+            self.who_queue.put((connection, m.group(1)))
 
     def on_quit(self, connection, event):
         m = re.match("(E-grs_.*)!", event.source)
         if m:
             self.queue.put(('quit', [m.group(1)]))
-        
+
     def on_kick(self, connection, event):
         m = re.match("(E-grs_.*)", event.arguments[0])
         if m:
@@ -103,9 +121,20 @@ class IrcThread(threading.Thread):
     def on_name(self, connection, event):
         for s in event.arguments[2].split():
             if s.startswith("E_"):
-                connection.who(s)
+                self.who_queue.put((connection, s))
+
+    def who_thread(self):
+        while not self.processor.shared.stopped():
+            try:
+                connection, s = self.who_queue.get(timeout=1)
+            except Queue.Empty:
+                continue
+            #logger.info("who: "+ s)
+            connection.who(s)
+            time.sleep(1)
 
     def run(self):
+
         while self.processor.shared.paused():
             time.sleep(1)
 
@@ -114,10 +143,16 @@ class IrcThread(threading.Thread):
         irc.client.ServerConnection.buffer_class = irc.buffer.LenientDecodingLineBuffer
         logger.info("joining IRC")
 
+        t = threading.Thread(target=self.who_thread)
+        t.start()
+
         while not self.processor.shared.stopped():
             client = irc.client.Reactor()
             try:
-                c = client.server().connect('irc.freenode.net', 6667, self.nick, self.password, ircname=self.ircname)
+                #bind_address = (self.irc_bind_ip, 0) if self.irc_bind_ip else None
+                #ssl_factory = irc.connection.Factory(wrapper=ssl.wrap_socket, bind_address=bind_address)
+                #c = client.server().connect('irc.freenode.net', 6697, self.nick, self.password, ircname=self.ircname, connect_factory=ssl_factory)
+                c = client.server().connect('irc.freenode.net', 6667, self.nick, self.password, ircname=self.ircname) 
             except irc.client.ServerConnectionError:
                 logger.error('irc', exc_info=True)
                 time.sleep(10)

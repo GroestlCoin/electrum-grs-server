@@ -21,14 +21,11 @@ setup(
         'electrumgrsserver.version',
         'electrumgrsserver.ircthread',
         'electrumgrsserver.stratum_tcp',
-        'electrumgrsserver.stratum_http'
     ],
     description="Bitcoin Electrum Server",
     author="Thomas Voegtlin",
-    author_email="thomasv1@gmx.de",
-    license="GNU Affero GPLv3",
+    author_email="thomasv@electrum.org",
+    license="MIT Licence",
     url="https://github.com/spesmilo/electrum-server/",
     long_description="""Server for the Electrum Lightweight Bitcoin Wallet"""
 )
-
-

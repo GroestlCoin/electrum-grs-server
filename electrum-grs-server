@@ -1,6 +1,6 @@
 #! /bin/bash
 
-
+PATH=$PATH:/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
 electrum_config="/etc/electrum-grs.conf"
 if [ ! -f $electrum_config ]; then
     echo "$electrum_config does not exist"
@@ -57,7 +57,7 @@ case "$1" in
 	fi
 
 	echo "Starting server as daemon"
-	cmd="ulimit -n 65536 ; nohup run_electrum_grs_server.py > /dev/null &"
+	cmd="ulimit -n 131072 ; nohup run_electrum_grs_server.py > /dev/null 2>>$logfile &"
 	if [ `id -u` = 0 ] ; then
             su $user -c "$cmd"
 	else
@@ -86,7 +86,7 @@ case "$1" in
 	    echo "Server running (pid $PID)"
 	fi
 	;;
-    getinfo|peers|numpeers|sessions|numsessions)
+    getinfo|peers|numpeers|sessions|numsessions|banner_update)
 	if [ ! "$PID" ]; then
 	    echo "Server not running"
 	    exit
@@ -103,7 +103,7 @@ case "$1" in
 	$0 start
 	;;
     *)
-	echo "Usage: electrum-grs-server {start|stop|restart|status|getinfo|peers|numpeers|sessions|numsessions}"
+	echo "Usage: electrum-grs-server {start|stop|restart|status|getinfo|peers|numpeers|sessions|numsessions|banner_update}"
 	exit 1
 	;;
 esac

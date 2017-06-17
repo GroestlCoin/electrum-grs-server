@@ -111,13 +111,13 @@ chown $user:$user $logfile
 
 bitcoind_user=$(read_config "bitcoind_user")
 if ! [ "$bitcoind_user" ]; then
-    read -p "rpcuser (from your groestlcoin.conf file): " -r
+    read -p "rpcuser (from your groestlcoin.conf file, leave empty for localhost): " -r
     write_config "bitcoind_user" $REPLY
 fi
 
 bitcoind_password=$(read_config "bitcoind_password")
 if ! [ "$bitcoind_password" ]; then
-    read -p "rpcpassword (from your groestlcoin.conf file): " -r
+    read -p "rpcpassword (from your groestlcoin.conf file, leave empty for localhost): " -r
     write_config "bitcoind_password" $REPLY
 fi
 

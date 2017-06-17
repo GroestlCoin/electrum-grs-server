@@ -1,3 +1,26 @@
+#!/usr/bin/env python
+# Copyright(C) 2011-2016 Thomas Voegtlin
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import plyvel
 import ast
 import hashlib
@@ -6,7 +29,9 @@ import sys
 import threading
 
 from processor import print_log, logger
-from utils import bc_address_to_hash_160, hash_160_to_pubkey_address, hex_to_int, int_to_hex, Hash
+from utils import bc_address_to_hash_160, hash_160_to_pubkey_address, Hash, \
+    bytes8_to_int, bytes4_to_int, int_to_bytes8, \
+    int_to_hex8, int_to_bytes4, int_to_hex4
 
 global GENESIS_HASH
 GENESIS_HASH = '00000ac5927c594d49cc0bdb81759d0da8297eb614683d3acb62f0703b639023'
@@ -20,7 +45,7 @@ Patricia tree for hashing unspents
 global GENESIS_HASH
 GENESIS_HASH = '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f'
 DB_VERSION = 3
-KEYLENGTH = 20 + 32 + 4   #56
+KEYLENGTH = 56   # 20 + 32 + 4
 
 
 class Node(object):
@@ -46,7 +71,7 @@ class Node(object):
         return len(self.s) == 40
 
     def get_singleton(self):
-        for i in range(256):
+        for i in xrange(256):
             if self.k == (1<<i):
                 return chr(i)
         raise BaseException("get_singleton")
@@ -54,7 +79,7 @@ class Node(object):
     def indexof(self, c):
         assert self.k != 0 or self.s == ''
         x = 0
-        for i in range(ord(c)):
+        for i in xrange(ord(c)):
             if (self.k & (1<<i)) != 0:
                 x += 40
         return x
@@ -63,13 +88,13 @@ class Node(object):
         x = self.indexof(c)
         ss = self.s[x:x+40]
         _hash = ss[0:32]
-        value = hex_to_int(ss[32:40])
+        value = bytes8_to_int(ss[32:40])
         return _hash, value
 
     def set(self, c, h, value):
         if h is None:
             h = chr(0)*32
-        vv = int_to_hex(value, 8).decode('hex')
+        vv = int_to_bytes8(value)
         item = h + vv
         assert len(item) == 40
         if self.has(c):
@@ -91,11 +116,11 @@ class Node(object):
         x = 0
         v = 0
         hh = ''
-        for i in range(256):
+        for i in xrange(256):
             if (self.k&(1<<i)) != 0:
                 ss = self.s[x:x+40]
                 hh += ss[0:32]
-                v += hex_to_int(ss[32:40])
+                v += bytes8_to_int(ss[32:40])
                 x += 40
         try:
             _hash = Hash(skip_string + hh)
@@ -109,12 +134,12 @@ class Node(object):
     def from_dict(klass, d):
         k = 0
         s = ''
-        for i in range(256):
-            if chr(i) in d.keys():
+        for i in xrange(256):
+            if chr(i) in d:
                 k += 1<<i
                 h, value = d[chr(i)]
                 if h is None: h = chr(0)*32
-                vv = int_to_hex(value, 8).decode('hex')
+                vv = int_to_bytes8(value)
                 item = h + vv
                 assert len(item) == 40
                 s += item
@@ -206,22 +231,27 @@ class Storage(object):
         except:
             self.pruning_limit = config.getint('leveldb', 'pruning_limit')
             self.db_undo.put('version', repr(self.pruning_limit))
+        # reorg limit
+        try:
+            self.reorg_limit = ast.literal_eval(self.db_undo.get('reorg_limit'))
+        except:
+            self.reorg_limit = config.getint('leveldb', 'reorg_limit')
+            self.db_undo.put('reorg_limit', repr(self.reorg_limit))
         # compute root hash
         root_node = self.get_node('')
         self.root_hash, coins = root_node.get_hash('', None)
         # print stuff
         print_log("Database version %d."%db_version)
         print_log("Pruning limit for spent outputs is %d."%self.pruning_limit)
+        print_log("Reorg limit is %d blocks."%self.reorg_limit)
         print_log("Blockchain height", self.height)
         print_log("UTXO tree root hash:", self.root_hash.encode('hex'))
         print_log("Coins in database:", coins)
 
     # convert between bitcoin addresses and 20 bytes keys used for storage.
-    def address_to_key(self, addr):
+    @staticmethod
+    def address_to_key(addr):
         return bc_address_to_hash_160(addr)
-
-    def key_to_address(self, addr):
-        return hash_160_to_pubkey_address(addr)
 
     def get_skip(self, key):
         o = self.skip_batch.get(key)
@@ -266,9 +296,9 @@ class Storage(object):
                     break
                 if len(k) == KEYLENGTH:
                     txid = k[20:52].encode('hex')
-                    txpos = hex_to_int(k[52:56])
-                    h = hex_to_int(v[8:12])
-                    v = hex_to_int(v[0:8])
+                    txpos = bytes4_to_int(k[52:56])
+                    h = bytes4_to_int(v[8:12])
+                    v = bytes8_to_int(v[0:8])
                     out.append({'tx_hash': txid, 'tx_pos':txpos, 'height': h, 'value':v})
                 if len(out) == 1000:
                     print_log('max utxo reached', addr)
@@ -288,36 +318,34 @@ class Storage(object):
             item = h[0:80]
             h = h[80:]
             txi = item[0:32].encode('hex')
-            hi = hex_to_int(item[36:40])
+            hi = bytes4_to_int(item[36:40])
             txo = item[40:72].encode('hex')
-            ho = hex_to_int(item[76:80])
+            ho = bytes4_to_int(item[76:80])
             out.append((hi, txi))
             out.append((ho, txo))
         # uniqueness
         out = set(out)
         # sort by height then tx_hash
-        out = list(out)
-        out.sort()
+        out = sorted(out)
         return map(lambda x: {'height':x[0], 'tx_hash':x[1]}, out)
 
     def get_address(self, txi):
         return self.db_addr.get(txi)
 
     def get_undo_info(self, height):
-        s = self.db_undo.get("undo_info_%d" % (height % 100))
+        s = self.db_undo.get("undo_info_%d" % (height % self.reorg_limit))
         if s is None:
             print_log("no undo info for ", height)
         return eval(s)
 
-
     def write_undo_info(self, height, bitcoind_height, undo_info):
-        if height > bitcoind_height - 100 or self.test_reorgs:
-            self.db_undo.put("undo_info_%d" % (height % 100), repr(undo_info))
+        if height > bitcoind_height - self.reorg_limit or self.test_reorgs:
+            self.db_undo.put("undo_info_%d" % (height % self.reorg_limit), repr(undo_info))
 
-
-    def common_prefix(self, word1, word2):
+    @staticmethod
+    def common_prefix(word1, word2):
         max_len = min(len(word1),len(word2))
-        for i in range(max_len):
+        for i in xrange(max_len):
             if word2[i] != word1[i]:
                 index = i
                 break
@@ -385,7 +413,7 @@ class Storage(object):
             self.put_node(parent, parent_node)
 
         # write the new leaf
-        s = (int_to_hex(value, 8) + int_to_hex(height,4)).decode('hex')
+        s = (int_to_hex8(value) + int_to_hex4(height)).decode('hex')
         self.db_utxo.put(target, s)
         # the hash of a leaf is the txid
         _hash = target[20:52]
@@ -403,7 +431,7 @@ class Storage(object):
     def update_hashes(self):
         nodes = {} # nodes to write
 
-        for i in range(KEYLENGTH, -1, -1):
+        for i in xrange(KEYLENGTH, -1, -1):
 
             for node in self.hash_list.keys():
                 if len(node) != i:
@@ -442,7 +470,7 @@ class Storage(object):
                     self.hash_list[parent] = (parent_hash, parent_value)
 
 
-        for k, v in nodes.items():
+        for k, v in nodes.iteritems():
             self.put_node(k, v)
         # cleanup
         assert self.hash_list == {}
@@ -491,7 +519,7 @@ class Storage(object):
         self.db_utxo.delete(leaf)
 
         if leaf in self.hash_list:
-            self.hash_list.pop(leaf)
+            del self.hash_list[leaf]
 
         parent = path[-1]
         letter = leaf[len(parent)]
@@ -503,7 +531,7 @@ class Storage(object):
             #print "deleting parent", parent.encode('hex')
             self.db_utxo.delete(parent)
             if parent in self.hash_list:
-                self.hash_list.pop(parent)
+                del self.hash_list[parent]
 
             l = parent_node.get_singleton()
             _hash, value = parent_node.get(l)
@@ -522,7 +550,7 @@ class Storage(object):
             # note: k is not necessarily a leaf
             if len(otherleaf) == KEYLENGTH:
                 ss = self.db_utxo.get(otherleaf)
-                _hash, value = otherleaf[20:52], hex_to_int(ss[0:8])
+                _hash, value = otherleaf[20:52], bytes8_to_int(ss[0:8])
             else:
                 _hash, value = None, None
             self.update_node_hash(otherleaf, path[:-1], _hash, value)
@@ -553,7 +581,7 @@ class Storage(object):
 
     def add_to_history(self, addr, tx_hash, tx_pos, value, tx_height):
         key = self.address_to_key(addr)
-        txo = (tx_hash + int_to_hex(tx_pos, 4)).decode('hex')
+        txo = (tx_hash + int_to_hex4(tx_pos)).decode('hex')
         # write the new history
         self.add_key(key + txo, value, tx_height)
         # backlink
@@ -562,7 +590,7 @@ class Storage(object):
 
     def revert_add_to_history(self, addr, tx_hash, tx_pos, value, tx_height):
         key = self.address_to_key(addr)
-        txo = (tx_hash + int_to_hex(tx_pos, 4)).decode('hex')
+        txo = (tx_hash + int_to_hex4(tx_pos)).decode('hex')
         # delete
         self.delete_key(key + txo)
         # backlink
@@ -573,7 +601,7 @@ class Storage(object):
         key = self.address_to_key(addr)
         leaf = key + txi
         s = self.db_utxo.get(leaf)
-        value = hex_to_int(s[0:8])
+        value = bytes8_to_int(s[0:8])
         return value
 
 
@@ -581,16 +609,16 @@ class Storage(object):
         key = self.address_to_key(addr)
         leaf = key + txi
         s = self.delete_key(leaf)
-        value = hex_to_int(s[0:8])
-        in_height = hex_to_int(s[8:12])
+        value = bytes8_to_int(s[0:8])
+        in_height = bytes4_to_int(s[8:12])
         undo[leaf] = value, in_height
         # delete backlink txi-> addr
         self.db_addr.delete(txi)
         # add to history
         s = self.db_hist.get(addr)
         if s is None: s = ''
-        txo = (txid + int_to_hex(index,4) + int_to_hex(height,4)).decode('hex')
-        s += txi + int_to_hex(in_height,4).decode('hex') + txo
+        txo = (txid + int_to_hex4(index) + int_to_hex4(height)).decode('hex')
+        s += txi + int_to_bytes4(in_height) + txo
         s = s[ -80*self.pruning_limit:]
         self.db_hist.put(addr, s)
 
@@ -624,7 +652,7 @@ class Storage(object):
 
         prev_addr = []
         for i, x in enumerate(tx.get('inputs')):
-            txi = (x.get('prevout_hash') + int_to_hex(x.get('prevout_n'), 4)).decode('hex')
+            txi = (x.get('prevout_hash') + int_to_hex4(x.get('prevout_n'))).decode('hex')
             addr = self.get_address(txi)
             if addr is not None:
                 self.set_spent(addr, txi, txid, i, block_height, undo)
@@ -655,7 +683,7 @@ class Storage(object):
         for i, x in reversed(list(enumerate(tx.get('inputs')))):
             addr = prev_addr[i]
             if addr is not None:
-                txi = (x.get('prevout_hash') + int_to_hex(x.get('prevout_n'), 4)).decode('hex')
+                txi = (x.get('prevout_hash') + int_to_hex4(x.get('prevout_n'))).decode('hex')
                 self.revert_set_spent(addr, txi, undo)
                 touched_addr.add(addr)
 

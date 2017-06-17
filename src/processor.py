@@ -1,3 +1,26 @@
+#!/usr/bin/env python
+# Copyright(C) 2011-2016 Thomas Voegtlin
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import json
 import Queue as queue
 import socket
@@ -138,7 +161,6 @@ class RequestDispatcher(threading.Thread):
                 self.do_dispatch(session, request)
             except:
                 logger.error('dispatch',exc_info=True)
-            self.collect_garbage()
 
         self.stop()
 
@@ -186,17 +208,7 @@ class RequestDispatcher(threading.Thread):
     def remove_session(self, session):
         key = session.key()
         with self.lock:
-            self.sessions.pop(key)
-
-    def collect_garbage(self):
-        # only for HTTP sessions.
-        now = time.time()
-        if time.time() - self.lastgc < 60.0:
-            return
-        self.lastgc = now
-        for session in self.sessions.values():
-            if session.name == "HTTP" and (now - session.time) > session.timeout:
-                session.stop()
+            del self.sessions[key]
 
 
 class Session:
