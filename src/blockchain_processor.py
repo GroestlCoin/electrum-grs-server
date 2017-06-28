@@ -231,7 +231,7 @@ class BlockchainProcessor(Processor):
 
     @staticmethod
     def hash_header(header):
-        return rev_hex(groestlHash(header_to_string(header).decode('hex')).encode('hex'))
+        return rev_hex(Hash(header_to_string(header).decode('hex')).encode('hex'))
 
     def read_header(self, block_height):
         if os.path.exists(self.headers_filename):
@@ -389,7 +389,7 @@ class BlockchainProcessor(Processor):
         txdict = {}     # deserialized tx
         is_coinbase = True
         for raw_tx in txlist:
-            tx_hash = hash_encode(singleSha256(raw_tx.decode('hex')))
+            tx_hash = hash_encode(Hash(raw_tx.decode('hex')))
             vds = deserialize.BCDataStream()
             vds.write(raw_tx.decode('hex'))
             try:
