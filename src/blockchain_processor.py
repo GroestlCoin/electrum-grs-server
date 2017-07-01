@@ -34,7 +34,7 @@ import urllib
 import deserialize
 from processor import Processor, print_log
 from storage import Storage
-from utils import logger, hash_decode, hash_encode, Hash, header_from_string, header_to_string, ProfiledThread, \
+from utils import logger, hash_decode, hash_encode, Hash, groestlHash, header_from_string, header_to_string, ProfiledThread, \
     rev_hex, int_to_hex4
 
 class BlockchainProcessor(Processor):
